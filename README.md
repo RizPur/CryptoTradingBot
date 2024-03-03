@@ -14,8 +14,8 @@ This project is a simple simulation of a crypto trading bot written in Python. I
 1. **Clone the repository**
 
     ```bash
-    git clone <repository-url>
-    cd crypto-trade
+    git clone https://github.com/RizPur/CryptoTradingBot
+    cd CryptoTradingBot
     ```
 
 2. **Install dependencies**
