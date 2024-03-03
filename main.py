@@ -11,6 +11,21 @@ chains = {
     "BSC": "56",
 }
 
+def getCryptoPrice(crypto):
+    cryptos = {
+        "btc" : "bitcoin",
+        "eth" : "ethereum"
+    }
+    if crypto.lower() in cryptos:
+        crypto_id = cryptos[crypto.lower()]
+        url =f'https://api.coingecko.com/api/v3/simple/price?ids={crypto_id}&vs_currencies=usd'
+        response = requests.get(url)
+        data = response.json()
+        print(data[crypto_id]['usd'])
+        return data[crypto_id]['usd']
+    else:
+        return None
+
 def getBalances(chain):
     url = f"https://api.covalenthq.com/v1/{chain}/address/{wallet}/balances_v2/?key={apiKey}"
     response = requests.get(url)
@@ -34,6 +49,7 @@ def getBalances(chain):
         print("Failed to fetch data")
 
 if __name__ == "__main__":
-    getBalances(chains["Eth"])
-    getBalances(chains["Polygon"])
-    getBalances(chains["BSC"])
+    # getBalances(chains["Eth"])
+    # getBalances(chains["Polygon"])
+    # getBalances(chains["BSC"])
+    getCryptoPrice("btc")
