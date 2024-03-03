@@ -1,6 +1,7 @@
 import json
 import requests
 import random
+import datetime
 # from covalent import CovalentClient
 
 config = json.load(open("params.json"))
@@ -11,12 +12,49 @@ chains = {
     "polygon": "137",
     "bsc": "56",
 }
+cryptos = {
+    "btc" : "bitcoin",
+    "eth" : "ethereum"
+}
+
+def readNJsonLog(file_path):
+    with open(file_path, 'r') as file:
+        for line in file:
+            yield json.loads(line)
+
+def logError(error_message):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open("logs/errors_log.json", "a") as log_file:
+        log_file.write(f"{timestamp} - {error_message}\n")
+
+def getCryptoPrices(crypto_ids):
+    # Join the crypto_ids into a comma-separated string for the API request
+    ids = ','.join(crypto_ids)
+    url = f'https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies=usd'
+    
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Raises an HTTPError if the response was an error
+        data = response.json()
+    except requests.exceptions.HTTPError as http_e:
+        #HTTP errors
+        error_message = f"HTTP error occurred: {http_e}"
+        print(error_message)
+        logError(error_message)
+    except Exception as e:
+        error_message = f"Other error occurred: {e}"
+        # print(error_message)
+        logError(error_message)
+    else:
+        # log data if no errs
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_entry = {"timestamp": timestamp, "data": data}
+
+        with open("logs/prices_log.json", "a") as log_file:
+            json.dump(log_entry, log_file)
+            log_file.write('\n')
 
 def getCryptoPrice(crypto):
-    cryptos = {
-        "btc" : "bitcoin",
-        "eth" : "ethereum"
-    }
     if crypto.lower() in cryptos:
         crypto_id = cryptos[crypto.lower()]
         url =f'https://api.coingecko.com/api/v3/simple/price?ids={crypto_id}&vs_currencies=usd'
@@ -96,12 +134,15 @@ def simultateTrade():
 
 
 if __name__ == "__main__":
-    # getBalances(chains["eth"])
-    # getBalances(chains["Polygon"])
-    # getBalances(chains["BSC"])
-    # getCryptoPrice("btc")
     try:
+        # getBalances(chains["eth"])
+        # getBalances(chains["Polygon"])
+        # getBalances(chains["BSC"])
+        # getCryptoPrice("btc")
         # getCryptoPrice("eth")
-        simultateTrade()
+        # simultateTrade()
+        getCryptoPrices(["ethereum", "bitcoin"])
+        # for log_entry in readNJsonLog("prices_log.json"):
+        #     print(log_entry["timestamp"], log_entry["data"])
     except Exception as e:
         print(f"Error:{e}")
