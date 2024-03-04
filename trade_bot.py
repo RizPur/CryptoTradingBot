@@ -2,9 +2,8 @@ import json
 import requests
 import random
 import datetime
-# from covalent import CovalentClient
-
-#should run every 5 mins to log price data in prices_log
+from technical_analysis import load_historical_prices, moving_average_crossover_signals
+#run every hour to simulate trade
 
 config = json.load(open("params.json"))
 apiKey = config["covalentAPIKey"]
@@ -19,57 +18,10 @@ cryptos = {
     "eth" : "ethereum"
 }
 
-def readNJsonLog(file_path):
-    with open(file_path, 'r') as file:
-        for line in file:
-            yield json.loads(line)
-
 def logError(error_message):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open("logs/errors_log.json", "a") as log_file:
         log_file.write(f"{timestamp} - {error_message}\n")
-
-
-def getCryptoPrices(crypto_ids):
-    # Join the crypto_ids into a comma-separated string for the API request
-    ids = ','.join(crypto_ids)
-    url = f'https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies=usd'
-    
-    try:
-        response = requests.get(url)
-        response.raise_for_status()  # Raises an HTTPError if the response was an error
-        data = response.json()
-    except requests.exceptions.HTTPError as http_e:
-        #HTTP errors
-        error_message = f"HTTP error occurred: {http_e}"
-        print(error_message)
-        logError(error_message)
-    except Exception as e:
-        error_message = f"Other error occurred: {e}"
-        # print(error_message)
-        logError(error_message)
-    else:
-        # log data if no errs
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        log_entry = {"timestamp": timestamp, "data": data}
-
-        with open("logs/prices_log.json", "a") as log_file:
-            json.dump(log_entry, log_file)
-            log_file.write('\n')
-
-        return data
-
-def getCryptoPrice(crypto):
-    if crypto.lower() in cryptos:
-        crypto_id = cryptos[crypto.lower()]
-        url =f'https://api.coingecko.com/api/v3/simple/price?ids={crypto_id}&vs_currencies=usd'
-        response = requests.get(url)
-        data = response.json()
-        # print(data)
-        # print(data[crypto_id]['usd'])
-        return data[crypto_id]['usd']
-    else:
-        return None
 
 def getBalances(chain):
     url = f"https://api.covalenthq.com/v1/{chain}/address/{wallet}/balances_v2/?key={apiKey}"
@@ -103,10 +55,42 @@ def getBalances(chain):
     else:
         print("Failed to fetch data")
         return json.dumps({"error": "Failed to fetch data"})
+    
+def getPriceFromLog(crypto_id):
+    try:
+        with open("logs/prices_log.json", "r") as log_file:
+            last_line = log_file.readlines()[-1]
+            data = json.loads(last_line)
+            print(data['data'][crypto_id]['usd'])
+            return data['data'][crypto_id]['usd']
+    except FileNotFoundError:
+        print("Log file not found.")
+        logError("Log file not found")
+        return None
+    except Exception as e:
+        print(f"Error occurred while getting the current price: {e}")
+        logError(f"Error occurred while getting the current price: {e}")
+        return None
+
+def getSMASignals():
+    btc_prices = load_historical_prices("logs/prices_log.json", "bitcoin")
+    eth_prices = load_historical_prices("logs/prices_log.json", "ethereum")
+
+    # Define your short-term and long-term windows for SMAs
+    short_window = 10  # This could represent a 10-period SMA, for example
+    long_window = 50   # This could represent a 50-period SMA, for example
+
+    # Calculate SMA crossover signals for BTC
+    btc_signals = moving_average_crossover_signals(btc_prices, short_window, long_window)
+    print("BTC Signals:", btc_signals)
+
+    # Calculate SMA crossover signals for ETH
+    eth_signals = moving_average_crossover_signals(eth_prices, short_window, long_window)
+    print("ETH Signals:", eth_signals)
 
 def simultateTrade():
+    #get USDT balance
     usdt_polygon = getBalances(chains["polygon"])
-    # print(usdt_polygon)
     usdt_bsc = getBalances(chains["bsc"])
     usdt_balance = 0
     for obj in usdt_polygon:
@@ -117,10 +101,9 @@ def simultateTrade():
             usdt_balance += obj['balance']
     # print(usdt_balance)
     
-    crypto_prices = getCryptoPrices(["ethereum", "bitcoin"])
-    eth_price = crypto_prices['ethereum']['usd']
-    btc_price = crypto_prices['bitcoin']['usd']
-
+    #get current prices
+    eth_price = getPriceFromLog("ethereum")
+    btc_price = getPriceFromLog("bitcoin")
 
     should_buy = random.choice([True, False])
 
@@ -139,17 +122,5 @@ def simultateTrade():
     else:
         print("No action taken.")
 
-
-if __name__ == "__main__":
-    try:
-        # getBalances(chains["eth"])
-        # getBalances(chains["Polygon"])
-        # getBalances(chains["BSC"])
-        # getCryptoPrice("btc")
-        # getCryptoPrice("eth")
-        # simultateTrade()
-        print(getCryptoPrices(["ethereum", "bitcoin"])['bitcoin']['usd'])
-        # for log_entry in readNJsonLog("prices_log.json"):
-        #     print(log_entry["timestamp"], log_entry["data"])
-    except Exception as e:
-        print(f"Error:{e}")
+getPriceFromLog("ethereum")
+getSMASignals()
